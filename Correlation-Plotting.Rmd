@@ -1,0 +1,622 @@
+---
+title: "Correlation & Diversity Analysis"
+author: "Cory Joyner"
+date: "2024-02-26"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = 'C:/Users/joyne/OneDrive/Documents/')
+```
+
+```{r}
+
+```
+
+```{r}
+#####################################################################################################################
+# Welcome to my RStudio Code for doing spearman correlation analysis between ARG and MRG genes as well as some basic#                                
+#                                          plotting and diversity!                                                  #
+#####################################################################################################################
+
+## begin by loading in the necessary packages
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+library(vegan)
+library(caret)
+library(Rtsne)
+library(MASS)
+library(indicspecies)
+library(gridExtra)
+library(Hmisc)
+library(RcmdrMisc)
+library(corrr)
+library(viridis)
+library(RColorBrewer)
+library(ggnewscale)
+library(factoextra)
+library(ecodist)
+library(ggfortify)
+
+```
+```{r}
+## load in the gene types, normalized against the copy of 16s genes sequenced. The header represents the gene names, while the rows are the genomes annotated
+file_16s <- read.csv(file="DESEQ_Data/Final_Files_For_Project/16s_Normalized_Type/Master_Type_List_16s.csv", header=TRUE)
+
+
+```
+
+```{r}
+## We're combining the individual genomes to get one representative count per project, which means we should exclude the genome column to leave only the key to summarize by. Since each genome is considered 
+Master_Type_List_16s_nopseudoreplicates <- file_16s[-1] %>%
+ group_by(Key) %>%
+  summarise(across(everything(), sum))
+```
+
+```{r}
+
+## If any NAs were introduced during the summary, replace them with zeros. 
+Master_Type_List_16s_nopseudoreplicates[is.na(Master_Type_List_16s_nopseudoreplicates)] <- 0
+## saving this file since it doesn't contain pseudoreplicates!
+write.csv(Master_Type_List_16s_nopseudoreplicates,"Master_Type_list_16s_nopseudo.csv")
+```
+
+
+```{r}
+## starting back the analysis, reading in the file created in the previous steps. 
+Type_16s_no_pseudo <- read.csv(file="DESEQ_Data/Final_Files_For_Project/16s_Normalized_Type/Master_Type_list_16s_nopseudo.csv", header=TRUE)
+
+```
+
+
+
+```{r}
+
+## Using the qplot function of ggplot2 to make boxplots of relevant metal resistance genes using biome as the x-axis label 
+
+arsenic <- qplot(Biome, Arsenic.As., data=Type_16s_no_pseudo, geom="boxplot") + ylim(0.0,2.0) +ylab("Relative abundance / 16s copy") +ggtitle("Arsenic") +theme(plot.title = element_text(hjust = 0.5))
+                                                                                                                        copper <- qplot(Biome, Copper.Cu., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,1) +ylab("Relative abundance / 16s copy") +ggtitle("Copper") +theme(plot.title = element_text(hjust = 0.5))
+zinc <- qplot(Biome, Zinc.Zn., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.25) +ylab("Relative abundance / 16s copy") +ggtitle("Zinc") +theme(plot.title = element_text(hjust = 0.5))
+mercury <- qplot(Biome, Mercury.Hg., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy")+ggtitle("Mercury") +theme(plot.title = element_text(hjust = 0.5))
+chromium <- qplot(Biome, Chromium.Cr., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.75) +ylab("Relative abundance / 16s copy")+ggtitle("Chromium") +theme(plot.title = element_text(hjust = 0.5))
+iron <- qplot(Biome, Iron.Fe., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy")+ggtitle("Iron") +theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+
+```{r}
+```
+
+```{r, fig.height=9}
+## Use the grid.arrange function of gridextra to plot all of these beside each other, then save them to a pdf. If there are a lot of plots consider adjusting the figure height in the chunk options! 
+multi_metals <- grid.arrange(arsenic,copper,zinc,mercury,chromium,iron, ncol=3)
+multi_metals
+```
+
+
+```{r}
+## repeating the same as above, but for relevant ARGs this time, using biome as the variable 
+
+
+multidrug <- qplot(Biome, multidrug, data=Type_16s_no_pseudo, geom="boxplot") + ylim(0.0,0.75) +ylab("Relative abundance / 16s copy") +ggtitle("Multidrug") +theme(plot.title = element_text(hjust = 0.5))
+                                                                                                                                   
+beta_lactams <- qplot(Biome, beta_lactam, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy") +ggtitle("Beta Lactams") +theme(plot.title = element_text(hjust = 0.5))
+
+tetracycline <- qplot(Biome, tetracycline, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0,0.15) +ylab("Relative abundance / 16s copy") +ggtitle("Tetracycline") +theme(plot.title = element_text(hjust = 0.5))
+
+bacitracin <- qplot(Biome, bacitracin, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy")+ggtitle("Bacitracin") +theme(plot.title = element_text(hjust = 0.5))
+
+polymyxin <- qplot(Biome, polymyxin, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.75) +ylab("Relative abundance / 16s copy")+ggtitle("Polymyxin") +theme(plot.title = element_text(hjust = 0.5))
+
+aminoglycoside <- qplot(Biome, aminoglycoside, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.3) +ylab("Relative abundance / 16s copy")+ggtitle("Aminoglycoside") +theme(plot.title = element_text(hjust = 0.5))
+
+MLS <- qplot(Biome, macrolide.lincosamide.streptogramin, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.3) +ylab("Relative abundance / 16s copy")+ggtitle("MLS") +theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+```{r, fig.height=9}
+
+## arranging the objects like previously
+multi_antibiotics <- grid.arrange(multidrug,beta_lactams,tetracycline,bacitracin,polymyxin,aminoglycoside,MLS, ncol=3)
+multi_antibiotics
+```
+
+
+```{r}
+## save the grid.arrange object to a pdf 
+#ggsave("Multi_Antibiotics.pdf", plot=multi_antibiotics, height = 12, width = 12)
+```
+
+
+
+
+
+
+```{r}
+
+## Repeating the plotting, but using hemisphere as the variable this time! 
+
+
+arsenic_hemi <- qplot(Hemisphere, Arsenic.As., data=Type_16s_no_pseudo, geom="boxplot") + ylim(0.0,2.0) +ylab("Relative abundance / 16s copy") +ggtitle("Arsenic") +theme(plot.title = element_text(hjust = 0.5))
+                                                                                                                                   
+copper_hemi <- qplot(Hemisphere, Copper.Cu., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,1) +ylab("Relative abundance / 16s copy") +ggtitle("Copper") +theme(plot.title = element_text(hjust = 0.5))
+
+zinc_hemi <- qplot(Hemisphere, Zinc.Zn., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.25) +ylab("Relative abundance / 16s copy") +ggtitle("Zinc") +theme(plot.title = element_text(hjust = 0.5))
+
+mercury_hemi <- qplot(Hemisphere, Mercury.Hg., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy")+ggtitle("Mercury") +theme(plot.title = element_text(hjust = 0.5))
+
+chromium_hemi <- qplot(Hemisphere, Chromium.Cr., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.75) +ylab("Relative abundance / 16s copy")+ggtitle("Chromium") +theme(plot.title = element_text(hjust = 0.5))
+
+iron_hemi <- qplot(Hemisphere, Iron.Fe., data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy")+ggtitle("Iron") +theme(plot.title = element_text(hjust = 0.5))
+
+multidrug_hemi <- qplot(Hemisphere, multidrug, data=Type_16s_no_pseudo, geom="boxplot") + ylim(0.0,0.75) +ylab("Relative abundance / 16s copy") +ggtitle("Multidrug") +theme(plot.title = element_text(hjust = 0.5))
+                                                                                                                                   
+beta_lactam_hemi <- qplot(Hemisphere, beta_lactam, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy") +ggtitle("Beta Lactams") +theme(plot.title = element_text(hjust = 0.5))
+
+tetracycline_hemi <- qplot(Hemisphere, tetracycline, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0,0.15) +ylab("Relative abundance / 16s copy") +ggtitle("Tetracycline") +theme(plot.title = element_text(hjust = 0.5))
+
+bacitracin_hemi <- qplot(Hemisphere, bacitracin, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.5) +ylab("Relative abundance / 16s copy")+ggtitle("Bacitracin") +theme(plot.title = element_text(hjust = 0.5))
+
+polymyxin_hemi <- qplot(Hemisphere, polymyxin, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.75) +ylab("Relative abundance / 16s copy")+ggtitle("Polymyxin") +theme(plot.title = element_text(hjust = 0.5))
+
+aminoglycoside_hemi <- qplot(Hemisphere, aminoglycoside, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.3) +ylab("Relative abundance / 16s copy")+ggtitle("Aminoglycoside") +theme(plot.title = element_text(hjust = 0.5))
+
+MLS_hemi <- qplot(Hemisphere, macrolide.lincosamide.streptogramin, data=Type_16s_no_pseudo, geom="boxplot") +ylim(0.0,0.15) +ylab("Relative abundance / 16s copy")+ggtitle("MLS") +theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r,fig.height=20}
+Metal_Antibiotic_Hemisphere <- grid.arrange(arsenic_hemi,copper_hemi,mercury_hemi,chromium_hemi,zinc_hemi,iron_hemi,multidrug_hemi,beta_lactam_hemi,tetracycline_hemi,bacitracin_hemi,polymyxin_hemi,aminoglycoside_hemi,MLS_hemi,ncol=5)
+
+
+#ggsave("Metal_Antibiotic_Hemisphere.pdf", Metal_Antibiotic_Hemisphere)
+
+```
+
+
+
+```{r}
+## one plot for continent, nothing interesting. 
+qplot(Continent, bacitracin, data=Type_16s_no_pseudo, geom="boxplot") + ylim(0.0,0.75) +ylab("Relative abundance / 16s copy") +ggtitle("bacitracin") +theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r}
+
+```
+
+```{r}
+
+## Based on previous PCA analysis, there are a ton of dimensions not being captured. Let's do t-stochastic neighbor embedding to see if that helps out. TSNE doesn't like duplicates, so we run this code first to ensure no dupes are present. 
+removed_dup <- unique(Type_16s_no_pseudo)
+
+## convert the 16s abundances to a matrix, remove any metadata attached to the file 
+tsne_matrix_16s <- as.matrix(removed_dup[16:ncol(removed_dup)])
+
+## grab some metadata to color code the plot later! 
+tsne_metadata <- read.csv("DESEQ_Data/Final_Files_For_Project/16s_Normalized_Type/Master_Type_list_16s_nopseudo.csv")
+```
+
+
+
+
+
+```{r}
+## TsNE can give you different orientations of the same plot if you don't set the seed. To be consistent, that is done here! 
+set.seed(5)
+
+## Run the TSNE with 10 perplexity, ignoring duplicates (which were removed previously) 
+tsne_out_16s <- Rtsne(tsne_matrix_16s,perplexity=10,check_duplicates = FALSE)
+```
+
+```{r}
+
+```
+
+
+```{r, fig.height=9}
+## Making the dataframe which contains the TSNE coordinates and relevant metadata items! 
+
+custom_colors <- c("#1f78b4", "#33a02c", "#e31a1c", "#ff7f00", "#6a3d9a", "#b15928", "#a6cee3", "#b2df8a", "#fb9a99", "#fdbf6f", "#cab244", "#ffff99", "#cccccc", "#8dd3c7", "#bebada", "#fb8072", "#80b1d3", "#fdb462","#80000b")
+tsne_plot <- data.frame(x = tsne_out_16s$Y[,1], 
+                        y = tsne_out_16s$Y[,2],
+                        Country = Type_16s_no_pseudo$Country,
+                        Biome = Type_16s_no_pseudo$Biome,
+                        Population =tsne_metadata$Population.Size,
+                        CO2 = tsne_metadata$CO2.Emissions,
+                        Agriculture= tsne_metadata$X..Agricultural.Land,
+                        Electric = tsne_metadata$Electric.Power.Consumption,
+                        Fossil = tsne_metadata$Fossil.Fuel.Energy.Consumption,
+                        Physicians = tsne_metadata$Physicians_Thousand,
+                        TotalARG = tsne_metadata$ProportionARG,
+                        TotalMRG = tsne_metadata$ProportionMRG,
+                        MST_classification = tsne_metadata$MST_ID)
+
+tsne_plot$Population <- as.numeric(gsub("[^0-9.]", "", tsne_plot$Population))
+tsne_plot$CO2 <- as.numeric(gsub("[^0-9.]", "", tsne_plot$CO2))
+tsne_plot$Agriculture <- as.numeric(gsub("[^0-9.]", "", tsne_plot$Agriculture))
+tsne_plot$Electric <- as.numeric(gsub("[^0-9.]", "", tsne_plot$Electric))
+tsne_plot$Fossil <- as.numeric(gsub("[^0-9.]", "", tsne_plot$Fossil))
+tsne_plot$Physicians <- as.numeric(gsub("[^0-9.]", "", tsne_plot$Physicians))
+tsne_plot$TotalARG <- as.numeric(gsub("[^0-9.]", "", tsne_plot$TotalARG))
+tsne_plot$TotalMRG <- as.numeric(gsub("[^0-9.]", "", tsne_plot$TotalMRG))
+
+                                        
+
+# Plotting the plot using ggplot() function. This is color coding the plot by the previously read in metavariables 
+
+tsne_population <- ggplot(tsne_plot, aes(x, y, color = Population)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = Population), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_CO2 <- ggplot(tsne_plot, aes(x, y, color = CO2)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = CO2), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_agriculture <- ggplot(tsne_plot, aes(x, y, color = Agriculture)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = Agriculture), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_Electric <- ggplot(tsne_plot, aes(x, y, color = Electric)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = Electric), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_fossil <- ggplot(tsne_plot, aes(x, y, color = Fossil)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = Fossil), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_physicians <- ggplot(tsne_plot, aes(x, y, color = Physicians)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = Physicians), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_ARG <- ggplot(tsne_plot, aes(x, y, color = TotalARG)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = TotalARG), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_MRG <- ggplot(tsne_plot, aes(x, y, color = TotalMRG)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = TotalMRG), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+
+tsne_MST <- ggplot(tsne_plot, aes(x, y, color = MST_classification)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = MST_classification), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+```
+
+```{r, fig.height=10}
+
+tsne_metadata_plot <- grid.arrange(tsne_agriculture,tsne_CO2,tsne_Electric,tsne_fossil,tsne_population, tsne_ARG, tsne_MRG, tsne_physicians, tsne_MST)
+#ggsave("TSNE_Metadata.pdf", tsne_metadata)
+```
+
+```{r}
+## Excluding metadata variables, we're running PCA within biomes this time to look at variations! 
+PCA_df_16s_types <- Type_16s_no_pseudo[6:ncol(Type_16s_no_pseudo)]
+
+
+```
+
+
+
+```{r}
+## Filter the larger dataframe to only get subsets by environment
+PCA_fresh <- Type_16s_no_pseudo[Type_16s_no_pseudo$Biome == 'freshwater',]
+PCA_marine <- Type_16s_no_pseudo[Type_16s_no_pseudo$Biome == 'marine',]
+PCA_estuary <- Type_16s_no_pseudo[Type_16s_no_pseudo$Biome == 'estuarine',]
+```
+
+```{r}
+
+## Running within each environment. Factoextra is used to get the loadings in barplot format to figure out which genes cause the most variation.
+
+PCA_freshwater <- prcomp(PCA_fresh[15:ncol(PCA_fresh)], scale = FALSE)
+Freshwater_PCA_Plot<- autoplot(PCA_freshwater, data=PCA_fresh, colour= "Country")
+
+freshwater_loadings_dim1 <- fviz_contrib(PCA_freshwater,
+                 choice = "var",
+                 axes = 1,
+                 top = 10, color = 'darkorange3', barfill  = 'blue4',fill ='blue4',)
+
+freshwater_loadings_dim2 <- fviz_contrib(PCA_freshwater,
+                 choice = "var",
+                 axes = 2,
+                 top = 10, color = 'darkorange3', barfill  = 'blue4',fill ='blue4',)
+```
+
+```{r}
+
+## marine PCA
+PCA_marine_1 <- prcomp(PCA_marine[15:ncol(PCA_marine)], scale =FALSE )
+marine_PCA_plot <- autoplot(PCA_marine_1, data=PCA_marine, colour= "Country",)
+
+PCA_estuary_1 <- prcomp(PCA_estuary[15:ncol(PCA_estuary)], scale = FALSE)
+
+marine_loadings_dim1 <- fviz_contrib(PCA_marine_1,
+                 choice = "var",
+                 axes = 1,
+                 top = 10, color = 'darkorange3', barfill  = 'blue4',fill ='blue4',)
+
+marine_loadings_dim2 <- fviz_contrib(PCA_marine_1,
+                 choice = "var",
+                 axes = 2,
+                 top = 10, color = 'darkorange3', barfill  = 'blue4',fill ='blue4',)
+
+
+estuary_PCA_plot <- autoplot(PCA_estuary_1, data=PCA_estuary, colour= "Country")
+```
+
+
+```{r}
+
+## Estuary PCA 
+estuary_loadings_dim1 <- fviz_contrib(PCA_estuary_1,
+                 choice = "var",
+                 axes = 1,
+                 top = 10, color = 'darkorange3', barfill  = 'blue4',fill ='blue4',)
+
+estuary_loadings_dim2 <- fviz_contrib(PCA_estuary_1,
+                 choice = "var",
+                 axes = 2,
+                 top = 10, color = 'darkorange3', barfill  = 'blue4',fill ='blue4',)
+
+
+```
+
+```{r, fig.height=20}
+## Saving it to a pdf 
+
+PCA_individual_biomes <- grid.arrange(Freshwater_PCA_Plot, freshwater_loadings_dim1, freshwater_loadings_dim2,
+             estuary_PCA_plot, estuary_loadings_dim1, estuary_loadings_dim2,
+             marine_PCA_plot, marine_loadings_dim1, marine_loadings_dim2)
+
+#ggsave("PCA_Individual_Biomes.pdf", PCA_individual_biomes)
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+## Running the correlation analysis for the genes instead of subtypes
+Subtype_List_forcorr <- read.csv(file="DESEQ_Data/Final_Files_For_Project/16s_Normalized_Subtype/Master_Subtype_List_16s_nopseudo.csv", header=TRUE, row.names=1)
+
+## Spearman rank correlation analysis 
+Spearman_Genes <- rcorr(as.matrix(Subtype_List_forcorr[5:ncol(Subtype_List_forcorr)]), type="spearman")
+
+
+## Adjusting the p values to control the false discovery rate resulting from multiple comparisons 
+p_adjusted <- p.adjust(Spearman_Genes$P, method="fdr")
+
+```
+
+
+```{r}
+
+## Function to condense the correlation matrix into ABC format and attach the p-values 
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+```
+```{r}
+## Saving the CSV to local computer
+abc_format_corrmatrix_spearman_fdr <- flattenCorrMatrix(Spearman_Genes$r, as.matrix(p_adjusted))
+
+#write.csv(abc_format_corrmatrix_spearman_fdr, "~/ABC_Format_Correlations_Genes_FDR.csv")
+```
+
+```{r, fig.height=25}
+
+# Filter the dataframe based on your conditions
+filtered_dataframe <- abc_format_corrmatrix_spearman_fdr %>%
+  filter(`cor` > 0.90, `p` < 0.05, row != column)
+
+# Select only columns 1 and 2
+#filtered_dataframe <- select(filtered_dataframe, row, column, cor, p)
+
+
+
+```
+
+```{r}
+## Read in gene file with added metadata
+master_subtype_w_metadata_nopseudo <- read.csv(file="DESEQ_Data/Final_Files_For_Project/16s_Normalized_Subtype/Master_Subtype_List_16s_nopseudo.csv", header=TRUE, row.names=1)
+
+## Plotting for tetA as an example, can do other genes too
+qplot(Biome, master_subtype_w_metadata_nopseudo$tetracycline__tetA, data=master_subtype_w_metadata_nopseudo, geom="boxplot") + ylim(0.0,0.025) +ylab("Relative abundance / 16s copy") +ggtitle("tetA") +theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r}
+## Running gene diversity estimates 
+shannon_gene_div <- diversity(master_subtype_w_metadata_nopseudo[5:ncol(master_subtype_w_metadata_nopseudo)], index="shannon")
+master_subtype_w_metadata_nopseudo$Shannon_Diversity <- shannon_gene_div
+
+Shannon_Gene_Plot <- qplot(Biome, Shannon_Diversity, data=master_subtype_w_metadata_nopseudo, geom="boxplot") + ylim(0,1.5) +ylab("Shannon")+theme(plot.title = element_text(hjust = 0.5)) +ggtitle("Shannon Diversity Index") + scale_x_discrete(labels = c("Estuary \n (n = 3)", "Freshwater \n (n = 29)", "Marine \n (n = 11)"))
+
+```
+```{r}
+
+## Simpson diversity on the genes present 
+simpson_gene_div <- diversity(master_subtype_w_metadata_nopseudo[5:ncol(master_subtype_w_metadata_nopseudo)], index="simpson")
+master_subtype_w_metadata_nopseudo$Simpson_Diversity <- simpson_gene_div
+
+Simpson_Gene_Plot <- qplot(Biome, Simpson_Diversity, data=master_subtype_w_metadata_nopseudo, geom="boxplot") + ylim(0,1) +ylab("Simpson")+theme(plot.title = element_text(hjust = 0.5)) +ggtitle("Simpson Diversity Index") + scale_x_discrete(labels = c("Estuary \n (n = 3)", "Freshwater \n (n = 29)", "Marine \n (n = 11)"))
+```
+
+
+```{r}
+#Non-parametric anova to control for multiple-comparisons 
+
+kruskal.test(Simpson_Diversity ~ Biome, data=master_subtype_w_metadata_nopseudo)
+kruskal.test(Simpson_Diversity ~ Country, data=master_subtype_w_metadata_nopseudo)
+kruskal.test(Shannon_Diversity ~ Biome, data=master_subtype_w_metadata_nopseudo)
+kruskal.test(Shannon_Diversity ~ Country, data=master_subtype_w_metadata_nopseudo)
+
+#pairwise.wilcox.test(PlantGrowth$weight, PlantGrowth$group,
+ #                p.adjust.method = "BH")
+#simpson_gene_aov <- aov(Simpson_Diversity ~ Country, data = master_subtype_w_metadata_nopseudo)
+#summary(simpson_gene_aov)
+#TukeyHSD(sppdiv_aov)
+```
+
+
+
+
+
+```{r}
+
+## Alpha diversity is good to go, now doing beta diversity for between site diversity estimates 
+dist_bc <- as.matrix(vegdist(master_subtype_w_metadata_nopseudo[5:ncol(master_subtype_w_metadata_nopseudo)], method = "bray"))
+```
+```{r}
+
+## double checking the dimensions of the matrix. It needs to be square! (i.e 43 x 43)
+ncol(dist_bc)
+nrow(dist_bc)
+```
+
+
+```{r}
+
+## Using the ecodist package to attempt PCOA 
+library(ecodist)
+pcoa <- wcmdscale(dist_bc, eig = TRUE)
+
+## Making the dataframe with important groups
+
+pcoa_df <- data.frame(pcoa$points)
+colnames(pcoa_df) <- c("PCo1", "PCo2")
+pcoa_df$Biome <- factor(master_subtype_w_metadata_nopseudo$Biome) #add group of interest, mine was Morphospecies in the data frame cal_fem_data2
+
+## Plot the PCOA 
+ggplot(pcoa_df, aes(x = PCo1, y = PCo2, color = Biome)) + 
+  geom_point(size = 2) +
+  xlab("PCo1") +
+  ylab("PCo2") + 
+  ggtitle("PcOA")
+  theme_classic()
+
+```
+
+
+
+
+
+```{r}
+
+## PCOA is displaying a horseshoe, meaning the data is not captured well by linear combinations. Let's try plotting the distances using TSNE instead! 
+set.seed(1432)
+tSNE_braycurtis <- Rtsne(dist_bc, is_distance = TRUE, dims = 2, perplexity = 10, verbose = TRUE, max_iter = 500)
+
+```
+```{r}
+tsne_plot_bc <- data.frame(x = tSNE_braycurtis$Y[,1], 
+                        y = tSNE_braycurtis$Y[,2],
+                        Biome = master_subtype_w_metadata_nopseudo$Biome,
+                        Key = rownames(master_subtype_w_metadata_nopseudo),
+                        Country = master_subtype_w_metadata_nopseudo$Country,
+                        Continent = master_subtype_w_metadata_nopseudo$Continent)
+                        
+                                       
+```
+
+```{r}
+
+## tsne plot based on the bray curtis distance between samples
+ggplot(tsne_plot_bc, aes(x, y, color = Continent, shape=Biome)) +
+  geom_point(size=3) +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_point(aes(color = Continent, shape=Biome), size = 0) +
+  xlab("TSNE1") + ylab("TSNE2")
+```
+
+```{r}
+
+```
+```{r}
+set.seed(5)
+tSNE_braycurtis_3D <- Rtsne(dist_bc, is_distance = TRUE, dims = 3, perplexity = 10, verbose = TRUE, max_iter = 500)
+```
+
+```{r}
+## We added a 3rd dimension to figure out if any influence is on the z-axis
+tsne_plot_3D <- data.frame(x = tSNE_braycurtis_3D$Y[,1], 
+                        y = tSNE_braycurtis_3D$Y[,2],
+                        z = tSNE_braycurtis_3D$Y[,3],
+                        Biome = master_subtype_w_metadata_nopseudo$Biome,
+                        Key = rownames(master_subtype_w_metadata_nopseudo),
+                        Country = master_subtype_w_metadata_nopseudo$Country,
+                        Continent = master_subtype_w_metadata_nopseudo$Continent)
+
+
+
+fig <-  plot_ly(data = tsne_plot_3D, x= ~x, y= ~y, z= ~z, color = ~Country, colors = c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#A2C3A4', '#000000'), shape= ~Continent ) %>% 
+  add_markers(size = 8) %>%
+  layout( 
+    xaxis = list(
+      zerolinecolor = "#ffff",
+      zerolinewidth = 2,
+      gridcolor='#'), 
+    yaxis = list(
+      zerolinecolor = "#ffff",
+      zerolinewidth = 2,
+      gridcolor='#ffffff'),
+    scene =list(bgcolor = "#e5e6cf"))
+fig
+```
+
+
+```{r}
+
+## Let's see if there are any genes associated with any environment type! 
+#install.packages("indicspecies", dependencies=TRUE)
+```
+
+
+```{r}
+inv = multipatt(master_subtype_w_metadata_nopseudo[5:ncol(master_subtype_w_metadata_nopseudo)], master_subtype_w_metadata_nopseudo$Biome, func = "r.g", control = how(nperm=9999))
+summary(inv)
+
+```
