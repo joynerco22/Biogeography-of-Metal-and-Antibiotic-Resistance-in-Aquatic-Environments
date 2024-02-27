@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "sarg_bacmetEXP_int_db_final.fa",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "sarg_bacmetEXP_int_db_final.fa",
+  "number-of-letters": 6587507,
+  "number-of-sequences": 15720,
+  "last-updated": "2023-08-04T23:48:00",
+  "number-of-volumes": 1,
+  "bytes-total": 13795777,
+  "bytes-to-cache": 6729124,
+  "files": [
+    "sarg_bacmetEXP_int_db_final.fa.pdb",
+    "sarg_bacmetEXP_int_db_final.fa.phr",
+    "sarg_bacmetEXP_int_db_final.fa.pin",
+    "sarg_bacmetEXP_int_db_final.fa.pot",
+    "sarg_bacmetEXP_int_db_final.fa.psq",
+    "sarg_bacmetEXP_int_db_final.fa.ptf",
+    "sarg_bacmetEXP_int_db_final.fa.pto"
+  ]
+}
